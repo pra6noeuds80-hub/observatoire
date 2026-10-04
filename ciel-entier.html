@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carte du ciel entier</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,500;1,300&display=swap">
+<style>
+:root{box-sizing:border-box;--bg:#e6eaf4;--ink:#1b2650;--soft:#55618f;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a0f24;--ink:#e9e4d2;--soft:#8c99c8}}
+:root[data-theme="dark"]{--bg:#0a0f24;--ink:#e9e4d2;--soft:#8c99c8}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Spectral,Georgia,'Times New Roman',serif;line-height:1.5}
+main{max-width:980px;margin:0 auto;padding:20px 12px 28px}
+h1{font-weight:300;font-size:1.8rem;margin:0 0 2px}
+p{color:var(--soft);margin:0 0 12px}p.sub{font-style:italic}
+button{font:inherit;background:var(--ink);color:var(--bg);border:0;border-radius:6px;padding:8px 14px;cursor:pointer}button:focus-visible{outline:2px solid #d9b86c;outline-offset:2px}
+.w{overflow-x:auto;border-radius:6px}
+canvas{display:block;min-width:900px;width:100%;aspect-ratio:2/1}
+</style></head><body><main>
+<p style="margin:0 0 10px"><a href="index.html" style="color:var(--soft)">← L'Observatoire</a></p>
+<h1>Le ciel entier</h1>
+<p class="sub">Carte indépendante du lieu et de l'heure : toute la sphère céleste à plat</p>
+<button id="pt" aria-pressed="false">Masquer les planètes</button>
+<div class="w" style="margin-top:10px"><canvas id="c" aria-label="Carte du ciel entier en ascension droite et déclinaison"></canvas></div>
+<p id="pl"></p>
+<p>Horizontalement l'ascension droite (24 h à 0 h, de gauche à droite), verticalement la déclinaison (+90° en haut, −90° en bas). L'équateur céleste est la ligne du milieu. Elle montre les 79 étoiles les plus brillantes avec leurs constellations principales, la ligne dorée en pointillés est l'écliptique, le chemin des planètes, et les cercles dorés sont les planètes à la date du jour. Ce n'est pas le ciel complet : un catalogue de milliers d'étoiles n'est pas intégré.</p>
+</main><script>
+const S=[["Sirius",6.752,-16.716,-1.46],["Arcturus",14.261,19.182,-.05],["Vega",18.615,38.784,.03],["Capella",5.278,45.998,.08],["Rigel",5.242,-8.202,.13],["Procyon",7.655,5.225,.34],["Betelgeuse",5.919,7.407,.5],["Altair",19.846,8.868,.77],["Aldébaran",4.599,16.509,.85],["Antarès",16.49,-26.432,1.06],["Spica",13.42,-11.161,.97],["Pollux",7.755,28.026,1.14],["Fomalhaut",22.961,-29.622,1.16],["Deneb",20.69,45.28,1.25],["Regulus",10.14,11.967,1.35],["Castor",7.577,31.888,1.58],["Bellatrix",5.419,6.35,1.64],["Elnath",5.438,28.608,1.65],["Alnilam",5.604,-1.202,1.69],["Alnitak",5.679,-1.943,1.77],["Mintaka",5.533,-.299,2.23],["Saiph",5.796,-9.67,2.06],["Meissa",5.585,9.934,3.4],["Polaris",2.53,89.264,1.98],["Dubhe",11.062,61.751,1.79],["Merak",11.031,56.382,2.37],["Phecda",11.897,53.695,2.44],["Megrez",12.257,57.033,3.31],["Alioth",12.9,55.96,1.77],["Mizar",13.399,54.925,2.27],["Alkaid",13.792,49.313,1.86],["Schedar",.675,56.537,2.24],["Caph",.153,59.15,2.27],["γ Cas",.945,60.717,2.47],["Ruchbah",1.43,60.235,2.68],["Segin",1.907,63.67,3.37],["Mirfak",3.405,49.861,1.79],["Algol",3.136,40.956,2.1],["Alpheratz",.14,29.09,2.06],["Mirach",1.162,35.621,2.05],["Almach",2.065,42.33,2.1],["Markab",23.079,15.205,2.49],["Scheat",23.063,28.083,2.42],["Algenib",.22,15.184,2.83],["Enif",21.736,9.875,2.4],["Albireo",19.512,27.96,3.18],["Sadr",20.37,40.257,2.2],["Gienah",20.77,33.97,2.48],["δ Cyg",19.75,45.131,2.87],["Rasalhague",17.582,12.56,2.08],["Kochab",14.845,74.156,2.08],["Pherkad",15.345,71.834,3],["Denebola",11.818,14.572,2.14],["Algieba",10.333,19.842,2.28],["Zosma",11.235,20.524,2.56],["Chertan",11.237,15.43,3.3],["Eltanin",17.943,51.489,2.23],["Rastaban",17.507,52.301,2.79],["Nunki",18.921,-26.297,2.05],["Hamal",2.12,23.462,2],["Dschubba",16.005,-22.622,2.3],["Graffias",16.091,-19.805,2.6],["Alphard",9.46,-8.659,2],["Ménkalinan",5.992,44.947,1.9],["Alhena",6.629,16.399,1.93],["Tejat",6.383,22.514,2.9],["ζ Tau",5.627,21.143,3],["Sheliak",18.835,33.363,3.5],["Sulafat",18.982,32.689,3.25],["δ Lyr",18.908,36.899,4.3],["ζ Lyr",18.746,37.605,4.3],["Tarazed",19.771,10.613,2.7],["Alshain",19.922,6.407,3.7],["Izar",14.75,27.074,2.7],["Séginus",14.535,38.308,3],["Nekkar",15.032,40.391,3.5],["Muphrid",13.911,18.398,2.7]];
+const I={};S.forEach((s,i)=>I[s[0]]=i);
+const C=[["Orion",[["Betelgeuse","Meissa","Bellatrix"],["Betelgeuse","Alnitak","Alnilam","Mintaka","Bellatrix"],["Alnitak","Saiph","Rigel","Mintaka"]]],
+["Grande Ourse",[["Dubhe","Merak","Phecda","Megrez","Dubhe"],["Megrez","Alioth","Mizar","Alkaid"]]],
+["Petite Ourse",[["Polaris","Kochab","Pherkad"]]],
+["Cassiopée",[["Caph","Schedar","γ Cas","Ruchbah","Segin"]]],
+["Cygne",[["Deneb","Sadr","Albireo"],["δ Cyg","Sadr","Gienah"]]],
+["Lyre",[["Vega","ζ Lyr","δ Lyr","Sulafat","Sheliak","ζ Lyr"]]],
+["Aigle",[["Tarazed","Altair","Alshain"]]],
+["Lion",[["Regulus","Algieba","Zosma","Denebola","Chertan","Regulus"]]],
+["Bouvier",[["Arcturus","Izar","Séginus","Nekkar"],["Arcturus","Muphrid"]]],
+["Scorpion",[["Graffias","Dschubba","Antarès"]]],
+["Pégase",[["Markab","Scheat","Alpheratz","Algenib","Markab"]]],
+["Andromède",[["Alpheratz","Mirach","Almach"]]],
+["Persée",[["Mirfak","Algol"]]],
+["Gémeaux",[["Castor","Pollux"],["Castor","Tejat"],["Pollux","Alhena"]]],
+["Taureau",[["Aldébaran","ζ Tau","Elnath"]]],
+["Cocher",[["Capella","Ménkalinan","Elnath"]]],
+["Dragon",[["Eltanin","Rastaban"]]]];
+const TINT={"Betelgeuse":"#ffb48a","Antarès":"#ff9c7a","Aldébaran":"#ffc08a","Arcturus":"#ffd2a0","Rigel":"#bcd2ff","Vega":"#d4e2ff","Sirius":"#d8e6ff","Spica":"#c8d8ff"};
+
+const EL={Mercure:[.38709927,.00000037,.20563593,.00001906,7.00497902,-.00594749,252.2503235,149472.67411175,77.45779628,.16047689,48.33076593,-.12534081],
+Vénus:[.72333566,.0000039,.00677672,-.00004107,3.39467605,-.0007889,181.9790995,58517.81538729,131.60246718,.00268329,76.67984255,-.27769418],
+Terre:[1.00000261,.00000562,.01671123,-.00004392,-.00001531,-.01294668,100.46457166,35999.37244981,102.93768193,.32327364,0,0],
+Mars:[1.52371034,.00001847,.0933941,.00007882,1.84969142,-.00813131,-4.55343205,19140.30268499,-23.94362959,.44441088,49.55953891,-.29257343],
+Jupiter:[5.202887,-.00011607,.04838624,-.00013253,1.30439695,-.00183714,34.39644051,3034.74612775,14.72847983,.21252668,100.47390909,.20469106],
+Saturne:[9.53667594,-.0012506,.05386179,-.00050991,2.48599187,.00193609,49.95424423,1222.49362201,92.59887831,-.41897216,113.66242448,-.28867794],
+Uranus:[19.18916464,-.00196176,.04725744,-.00004397,.77263783,-.00242939,313.23810451,428.48202785,170.9542763,.40805281,74.01692503,.04240589],
+Neptune:[30.06992276,.00026291,.00859048,.00005105,1.77004347,.00035372,-55.12002969,218.45945325,44.96476227,-.32241464,131.78422574,-.00508664]};
+const PL={Mercure:{v:1,c:"#cfc8bc",r:3},Vénus:{v:1,c:"#fff1c9",r:5},Mars:{v:1,c:"#ff7a55",r:3.5},Jupiter:{v:1,c:"#ffe0b0",r:4.5},Saturne:{v:1,c:"#e8d49a",r:3.5},Uranus:{v:0,c:"#9fe8e8",r:2.5},Neptune:{v:0,c:"#7aa0ff",r:2.5}};
+function helio(k,T){const e=EL[k],a=e[0]+e[1]*T,ec=e[2]+e[3]*T,I=(e[4]+e[5]*T)*Math.PI/180,L=e[6]+e[7]*T,vp=e[8]+e[9]*T,O=(e[10]+e[11]*T)*Math.PI/180;
+ const M=((L-vp)%360)*Math.PI/180,w=vp*Math.PI/180-O;let E=M;for(let i=0;i<12;i++)E=M+ec*Math.sin(E);
+ const xp=a*(Math.cos(E)-ec),yp=a*Math.sqrt(1-ec*ec)*Math.sin(E),cw=Math.cos(w),sw=Math.sin(w),cO=Math.cos(O),sO=Math.sin(O),ci=Math.cos(I),si=Math.sin(I);
+ return[(cw*cO-sw*sO*ci)*xp+(-sw*cO-cw*sO*ci)*yp,(cw*sO+sw*cO*ci)*xp+(-sw*sO+cw*cO*ci)*yp,sw*si*xp+cw*si*yp]}
+function planets(jd){const T=(jd-2451545)/36525,E=helio("Terre",T),ep=23.43928*Math.PI/180,out=[];
+ for(const k in PL){const h=helio(k,T),x=h[0]-E[0],y=h[1]-E[1],z=h[2]-E[2],ye=y*Math.cos(ep)-z*Math.sin(ep),ze=y*Math.sin(ep)+z*Math.cos(ep);
+  out.push(Object.assign({n:k,ra:((Math.atan2(ye,x)*180/Math.PI+360)%360)/15,dec:Math.asin(ze/Math.hypot(x,y,z))*180/Math.PI},PL[k]))}
+ return out}
+const cv=document.getElementById("c"),g=cv.getContext("2d");
+function draw(){
+ const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=W/2;
+ cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);g.setTransform(dpr,0,0,dpr,0,0);
+ const m=34,pw=W-2*m,ph=H-2*m,fs=Math.max(10,W*.012);
+ const X=ra=>m+(24-ra)/24*pw,Y=d=>m+(90-d)/180*ph;
+ const bg=g.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#0a0f24");bg.addColorStop(.5,"#16224d");bg.addColorStop(1,"#0a0f24");
+ g.fillStyle=bg;g.fillRect(0,0,W,H);
+ g.strokeStyle="rgba(140,153,200,.2)";g.lineWidth=1;g.fillStyle="rgba(180,190,225,.8)";
+ g.font=fs+"px Spectral,Georgia,serif";g.textAlign="center";
+ for(let h=0;h<=24;h+=2){g.beginPath();g.moveTo(X(h),m);g.lineTo(X(h),H-m);g.stroke();if(h<24)g.fillText(h+" h",X(h),m-8)}
+ g.textAlign="right";
+ for(let d=-90;d<=90;d+=30){g.beginPath();g.moveTo(m,Y(d));g.lineTo(W-m,Y(d));g.stroke();g.fillText((d>0?"+":"")+d+"°",m-6,Y(d)+4)}
+ g.strokeStyle="rgba(217,184,108,.55)";g.setLineDash([6,5]);g.beginPath();g.moveTo(m,Y(0));g.lineTo(W-m,Y(0));g.stroke();g.setLineDash([]);
+ g.strokeStyle="rgba(120,146,220,.6)";g.lineWidth=1.2;
+ g.font="italic "+fs*1.05+"px Spectral,Georgia,serif";g.textAlign="center";
+ C.forEach(([n,chs])=>{
+  let sx=0,sy=0,k=0;
+  chs.forEach(ch=>{
+   for(let i=0;i<ch.length-1;i++){
+    const a=S[I[ch[i]]],b=S[I[ch[i+1]]];
+    if(Math.abs(a[1]-b[1])<12){g.beginPath();g.moveTo(X(a[1]),Y(a[2]));g.lineTo(X(b[1]),Y(b[2]));g.stroke()}
+   }
+   ch.forEach(s=>{sx+=X(S[I[s]][1]);sy+=Y(S[I[s]][2]);k++});
+  });
+  g.fillStyle="rgba(217,184,108,.9)";g.fillText(n,sx/k,sy/k+fs*2);
+ });
+ if(showPl){
+ g.strokeStyle="rgba(217,184,108,.45)";g.lineWidth=1.2;g.setLineDash([2,4]);g.beginPath();
+ {let pr=null;const ep=23.43928*Math.PI/180;
+ for(let l=0;l<=360;l+=1){const a=l*Math.PI/180,ra=((Math.atan2(Math.cos(ep)*Math.sin(a),Math.cos(a))*180/Math.PI+360)%360)/15,d=Math.asin(Math.sin(ep)*Math.sin(a))*180/Math.PI;
+  if(pr!==null&&Math.abs(ra-pr)<12)g.lineTo(X(ra),Y(d));else g.moveTo(X(ra),Y(d));pr=ra}}
+ g.stroke();g.setLineDash([]);
+}
+ g.textAlign="left";
+ S.forEach(s=>{
+  const x=X(s[1]),y=Y(s[2]),r=Math.max(.9,(3.6-s[3])*.9*W/900+.4);
+  const gl=g.createRadialGradient(x,y,0,x,y,r*3);gl.addColorStop(0,"rgba(255,244,214,.35)");gl.addColorStop(1,"rgba(255,244,214,0)");
+  g.fillStyle=gl;g.beginPath();g.arc(x,y,r*3,0,7);g.fill();
+  g.fillStyle=TINT[s[0]]||"#f6efd9";g.beginPath();g.arc(x,y,r,0,7);g.fill();
+  if(s[3]<2){g.fillStyle="rgba(243,236,216,.92)";g.font=fs+"px Spectral,Georgia,serif";g.fillText(s[0],x+r+3,y-r-2)}
+ });
+ const pl=showPl?planets(Date.now()/864e5+2440587.5):[];g.textAlign="left";
+ pl.forEach(q=>{const x=X(q.ra),y=Y(q.dec),r=q.r*W/900+2;
+  g.fillStyle=q.c;g.beginPath();g.arc(x,y,r,0,7);g.fill();
+  g.strokeStyle="#d9b86c";g.lineWidth=1.2;g.beginPath();g.arc(x,y,r+3,0,7);g.stroke();
+  g.fillStyle="#ffd77a";g.font="500 "+fs*1.1+"px Spectral,Georgia,serif";g.fillText(q.n,x+r+6,y+4)});
+ document.getElementById("pl").textContent=!showPl?"":"Planètes au "+new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})+" : "+pl.map(q=>q.n+" "+Math.floor(q.ra)+" h "+Math.floor((q.ra%1)*60)+" min, "+(q.dec>0?"+":"")+Math.round(q.dec)+"°").join(" · ")+".";
+}
+let showPl=true;
+document.getElementById("pt").onclick=function(){showPl=!showPl;this.textContent=showPl?"Masquer les planètes":"Afficher les planètes";this.setAttribute("aria-pressed",String(!showPl));draw()};
+addEventListener("resize",draw);draw();
+</script></body></html>

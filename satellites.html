@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Satellites au-dessus de Poulainville</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,500;1,300&display=swap">
+<style>
+:root{box-sizing:border-box;--bg:#e6eaf4;--ink:#1b2650;--soft:#55618f;--gold:#9a7a2a;--btn:#1b2650;--btnt:#f3ecd8;--box:#f4f6fb;
+padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a0f24;--ink:#e9e4d2;--soft:#8c99c8;--gold:#d9b86c;--btn:#d9b86c;--btnt:#0a0f24;--box:#111a3d}}
+:root[data-theme="dark"]{--bg:#0a0f24;--ink:#e9e4d2;--soft:#8c99c8;--gold:#d9b86c;--btn:#d9b86c;--btnt:#0a0f24;--box:#111a3d}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Spectral,Georgia,'Times New Roman',serif;line-height:1.5}
+main{max-width:640px;margin:0 auto;padding:20px 14px 28px}
+h1{font-weight:300;font-size:1.8rem;margin:0 0 2px}
+h2{font-weight:500;font-size:1.15rem;margin:22px 0 6px}
+p.sub,p.note{color:var(--soft);margin:0 0 12px}
+p.sub{font-style:italic}
+p.note{font-size:.9rem}
+canvas{display:block;width:100%;aspect-ratio:1/1}
+textarea{width:100%;min-height:130px;background:var(--box);color:var(--ink);border:1px solid var(--soft);border-radius:6px;padding:9px;font:13px/1.35 ui-monospace,Menlo,Consolas,monospace}
+button{font:inherit;background:var(--btn);color:var(--btnt);border:0;border-radius:6px;padding:8px 14px;cursor:pointer;margin-top:8px}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+ol{padding-left:20px;margin:0}
+li{margin:0 0 7px}
+.dark{color:var(--gold)}
+.warn{color:#c0563a}
+</style>
+</head>
+<body>
+<main>
+<p style="margin:0 0 10px"><a href="index.html" style="color:var(--soft)">← L'Observatoire</a></p>
+<h1>Satellites et stations</h1>
+<p class="sub">Au-dessus de Poulainville · 49,967° N, 2,300° E</p>
+<canvas id="c" aria-label="Position des satellites dans le ciel de Poulainville"></canvas>
+<p class="note" id="clock"></p>
+<h2>Prochains passages</h2>
+<ol id="passes"><li>Collez des éléments orbitaux ci-dessous pour calculer les passages.</li></ol>
+<p class="note">Un passage est visible à l'œil nu quand le ciel est sombre (marqué en doré) et que le satellite est éclairé par le Soleil, ce que cette carte ne calcule pas.</p>
+<h2>Éléments orbitaux (TLE)</h2>
+<textarea id="tle" spellcheck="false" aria-label="Éléments orbitaux au format TLE" placeholder="ISS (ZARYA)&#10;1 25544U 98067A   ...&#10;2 25544  51.6300 ..."></textarea>
+<p class="note">Récupérez des TLE récents sur CelesTrak (rubrique « Current Data », groupe « Space Stations », format TLE) et collez-les ici : ISS, station chinoise CSS (Tianhe), et tout autre satellite. Au-delà d'environ une semaine, les prévisions deviennent peu fiables.</p>
+<button id="go">Calculer</button>
+<p class="note" id="msg"></p>
+</main>
+<script>
+const LAT=49.9667,LON=2.3,D=Math.PI/180,RE=6378.137,MU=398600.4418,J2=1.08263e-3;
+const cv=document.getElementById("c"),g=cv.getContext("2d"),ta=document.getElementById("tle");
+let sats=[],passes=[];
+function parse(txt){
+ const L=txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),out=[];
+ for(let i=0;i<L.length-1;i++){
+  if(L[i][0]=="1"&&L[i+1][0]=="2"&&L[i].length>=60&&L[i+1].length>=60){
+   const a=L[i],b=L[i+1];
+   const nm=(i>0&&L[i-1][0]!="1"&&L[i-1][0]!="2")?L[i-1].replace(/^0 /,""):"NORAD "+a.substr(2,5).trim();
+   let y=+a.substr(18,2);y+=y<57?2000:1900;
+   out.push({name:nm,ep:Date.UTC(y,0,1)+(+a.substr(20,12)-1)*864e5,i:+b.substr(8,8)*D,O:+b.substr(17,8)*D,e:+("0."+b.substr(26,7).trim()),w:+b.substr(34,8)*D,M:+b.substr(43,8)*D,n:+b.substr(52,11)});
+   i++;
+  }
+ }
+ return out;
+}
+function eci(s,ms){
+ const t=(ms-s.ep)/1000,n=s.n*2*Math.PI/86400,a=Math.cbrt(MU/(n*n)),p=a*(1-s.e*s.e);
+ const k=1.5*J2*(RE/p)**2*n,ci=Math.cos(s.i),si=Math.sin(s.i);
+ const O=s.O-k*ci*t,w=s.w+.5*k*(5*ci*ci-1)*t,M=s.M+n*t;
+ let E=M;for(let j=0;j<8;j++)E=M+s.e*Math.sin(E);
+ const x=a*(Math.cos(E)-s.e),y=a*Math.sqrt(1-s.e*s.e)*Math.sin(E);
+ const xp=x*Math.cos(w)-y*Math.sin(w),yp=x*Math.sin(w)+y*Math.cos(w),cO=Math.cos(O),sO=Math.sin(O);
+ return [xp*cO-yp*ci*sO,xp*sO+yp*ci*cO,yp*si];
+}
+function theta(ms){const jd=ms/864e5+2440587.5;return(((18.697374558+24.06570982441908*(jd-2451545))%24)*15)*D+LON*D}
+function look(s,ms){
+ const r=eci(s,ms),th=theta(ms),f=LAT*D;
+ const o=[RE*Math.cos(f)*Math.cos(th),RE*Math.cos(f)*Math.sin(th),RE*Math.sin(f)];
+ const d=[r[0]-o[0],r[1]-o[1],r[2]-o[2]],m=Math.hypot(...d);
+ const e=[-Math.sin(th),Math.cos(th),0],nn=[-Math.sin(f)*Math.cos(th),-Math.sin(f)*Math.sin(th),Math.cos(f)],u=[Math.cos(f)*Math.cos(th),Math.cos(f)*Math.sin(th),Math.sin(f)];
+ const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+ return[Math.asin(dot(d,u)/m)/D,(Math.atan2(dot(d,e),dot(d,nn))/D+360)%360];
+}
+function sunAlt(ms){
+ const n=ms/864e5+2440587.5-2451545,L=280.46+.9856474*n,gg=(357.528+.9856003*n)*D;
+ const lam=(L+1.915*Math.sin(gg)+.02*Math.sin(2*gg))*D,ep=23.439*D;
+ const ra=Math.atan2(Math.cos(ep)*Math.sin(lam),Math.cos(lam)),de=Math.asin(Math.sin(ep)*Math.sin(lam));
+ const h=theta(ms)-ra,f=LAT*D;
+ return Math.asin(Math.sin(de)*Math.sin(f)+Math.cos(de)*Math.cos(f)*Math.cos(h))/D;
+}
+function compute(){
+ const now=Date.now(),res=[];
+ sats.forEach(s=>{
+  let cur=null;
+  for(let t=now;t<now+36*36e5;t+=20000){
+   const a=look(s,t)[0];
+   if(a>10){if(!cur)cur={s:s.name,t0:t,mx:a,tm:t};if(a>cur.mx){cur.mx=a;cur.tm=t}cur.t1=t}
+   else if(cur){res.push(cur);cur=null}
+  }
+  if(cur)res.push(cur);
+ });
+ res.sort((a,b)=>a.t0-b.t0);passes=res.slice(0,10);
+ const ol=document.getElementById("passes");
+ const fm=new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+ const hm=new Intl.DateTimeFormat("fr-FR",{hour:"2-digit",minute:"2-digit"});
+ ol.innerHTML=passes.length?"":"<li>Aucun passage au-dessus de 10° dans les prochaines 36 h.</li>";
+ passes.forEach(p=>{
+  const li=document.createElement("li"),dk=sunAlt(p.tm)<-6;
+  li.innerHTML="<b></b> : "+fm.format(p.t0)+" – "+hm.format(p.t1+20000)+", hauteur max. "+Math.round(p.mx)+"°"+(dk?' <span class="dark">ciel sombre</span>':"");
+  li.firstChild.textContent=p.s;ol.appendChild(li);
+ });
+ const old=sats.filter(s=>now-s.ep>7*864e5).length;
+ document.getElementById("msg").innerHTML=sats.length?(sats.length+" objet(s) chargé(s).")+(old?' <span class="warn">'+old+" ont des éléments de plus de 7 jours : précision réduite.</span>":""):"Aucun TLE valide trouvé dans le texte.";
+}
+function draw(){
+ const dpr=window.devicePixelRatio||1,W=cv.clientWidth;
+ cv.width=cv.height=Math.round(W*dpr);g.setTransform(dpr,0,0,dpr,0,0);
+ const c=W/2,R=W/2-W*.06,fs=Math.max(11,W*.026);
+ const P=(alt,az)=>{const r=R*(90-alt)/90,a=az*D;return[c-r*Math.sin(a),c-r*Math.cos(a)]};
+ const bg=g.createRadialGradient(c,c,0,c,c,R);bg.addColorStop(0,"#0a0f24");bg.addColorStop(1,"#27356b");
+ g.fillStyle=bg;g.beginPath();g.arc(c,c,R,0,7);g.fill();
+ g.strokeStyle="rgba(140,153,200,.25)";g.lineWidth=1;
+ [30,60].forEach(a=>{g.beginPath();g.arc(c,c,R*(90-a)/90,0,7);g.stroke()});
+ g.beginPath();g.moveTo(c,c-R);g.lineTo(c,c+R);g.moveTo(c-R,c);g.lineTo(c+R,c);g.stroke();
+ g.strokeStyle="#d9b86c";g.lineWidth=1.5;g.beginPath();g.arc(c,c,R,0,7);g.stroke();
+ g.textAlign="center";g.textBaseline="middle";g.font="500 "+fs*1.3+"px Spectral,Georgia,serif";
+ g.fillStyle=getComputedStyle(document.body).color;const o=W*.03;
+ g.fillText("N",c,c-R-o);g.fillText("S",c,c+R+o);g.fillText("E",c-R-o,c);g.fillText("O",c+R+o,c);
+ g.save();g.beginPath();g.arc(c,c,R,0,7);g.clip();
+ const now=Date.now();g.font=fs+"px Spectral,Georgia,serif";g.textAlign="left";
+ sats.forEach(s=>{
+  g.strokeStyle="rgba(217,184,108,.5)";g.lineWidth=1.2;g.setLineDash([4,4]);g.beginPath();
+  let on=false;
+  for(let t=now;t<=now+30*6e4;t+=30000){const[a,z]=look(s,t);if(a>0){const[x,y]=P(a,z);on?g.lineTo(x,y):g.moveTo(x,y);on=true}else on=false}
+  g.stroke();g.setLineDash([]);
+  const[a,z]=look(s,now);
+  if(a>0){const[x,y]=P(a,z);g.fillStyle="#ffd77a";g.beginPath();g.arc(x,y,4,0,7);g.fill();g.fillStyle="#f3ecd8";g.fillText(s.name,x+7,y-6)}
+ });
+ g.restore();
+ const vis=sats.filter(s=>look(s,now)[0]>0).length;
+ document.getElementById("clock").textContent=new Date(now).toLocaleString("fr-FR")+" · "+(sats.length?vis+" objet(s) au-dessus de l'horizon. Les pointillés montrent les 30 prochaines minutes.":"Aucun satellite chargé.");
+}
+function load(){sats=parse(ta.value);compute();draw();try{localStorage.setItem("tle",ta.value)}catch(e){}}
+document.getElementById("go").onclick=load;
+const DEF="ISS (ZARYA)\n1 25544U 98067A   26276.49792087  .00005083  00000+0  10128-3 0  9999\n2 25544  51.6313 124.0722 0006914 218.1010 141.9490 15.48725660588544\nCSS (TIANHE-1)\n1 48274U 21035A   26276.72437152  .00014937  00000-0  18144-3 0  9995\n2 48274  41.4700  22.8716 0001940 326.0035  34.0679 15.60266806310117\nHST\n1 20580U 90037B   26276.71991929  .00004347  00000-0  13013-3 0  9993\n2 20580  28.4729  58.1679 0001271 285.6016  74.4440 15.31815463805221";
+let v0=null;try{v0=localStorage.getItem("tle")}catch(e){}
+if(!v0||parse(v0).every(s=>Date.now()-s.ep>7*864e5))v0=DEF;
+ta.value=v0;sats=parse(v0);compute();
+addEventListener("resize",draw);draw();
+setInterval(draw,2000);
+</script>
+</body>
+</html>
